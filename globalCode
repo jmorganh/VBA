@@ -1,0 +1,245 @@
+Option Compare Database
+
+'---------------------------------------------------------------------------------------
+' Procedure : errorLog
+' Author    : mhayes
+' Date      : 3/26/2015
+' Purpose   :log errors in tLogError Table
+'---------------------------------------------------------------------------------------
+'
+Sub logError(errNum As Integer, errDescript As String, modName As String, procName As String, errLine As Integer)
+
+10        On Error GoTo logError_Error
+
+          Dim nowDate As String
+          Dim logName As String
+          Dim osName As String
+          Dim DB As dao.Database
+          Dim rs2 As Object
+          
+20        nowDate = Now()
+30        logName = Environ("username")
+40        osName = Environ("OS")
+50        strErrShow = "false"
+          
+60        errShow = MsgBox("Error: " & errNum & vbCrLf & " (" & errDescript & ")" & vbCrLf & "In procedure: " & procName & vbCrLf & "Of Module: " & modName & vbCrLf & "On line number " & errLine, vbInformation)
+70        If errShow = 1 Then strErrShow = "True"
+80        sql = "UPDATE tLogError SET tLogError.ErrNumber = " & errNum & ", tLogError.ErrDescription = '" & errDescript & _
+              "', tLogError.ErrLine = '" & errLine & "', tLogError.ErrDate = '" & nowDate & "', tLogError.modName = '" & modName & _
+              "', tLogError.CallingProc = '" & procName & "', tLogError.UserName = '" & logName & "', tLogError.ShowUser = '" & strErrShow & _
+              "', tLogError.OperatingSystem = '" & osName & "'"
+
+90        Set DB = CurrentDb
+100       DB.Execute (sql)
+
+
+
+
+110       On Error GoTo 0
+120       Exit Sub
+
+logError_Error:
+
+130       MsgBox "Error " & Err.Number & " (" & Err.Description & ") in procedure logError of Sub Global functions"
+140       Set DB = Nothing
+End Sub
+
+Public Function startSunday(startDay As Date) As Date
+          Dim dayofWeek As String
+10    On Error GoTo startSunday_Error
+20        dayofWeek = Format(startDay, "ddd")
+          
+30        If dayofWeek <> "Sun" Then MsgBox "This date is not on a Sunday and will be change to the Sunday before " & startDay & "."
+          
+40        Select Case dayofWeek
+          Case "Mon"
+50            startDay = startDay - 1
+60        Case "Tue"
+70            startDay = startDay - 2
+80        Case "Wed"
+90            startDay = startDay - 3
+100       Case "Thu"
+110           startDay = startDay - 4
+120       Case "Fri"
+130           startDay = startDay - 5
+140       Case "Sat"
+150           startDay = startDay - 6
+              
+160       End Select
+          
+170       startSunday = startDay
+
+startSunday_Error:
+180       If Err.Number <> 0 Then
+190       Call logError(Err.Number, Err.Description, "startSunday", "Global Functions", Erl)
+200       End If
+
+End Function
+
+Function dirtycheck(Form As Form)
+    If Form.Dirty Then DoCmd.RunCommand acCmdSaveRecord
+End Function
+
+Function findSunday(pickDate As Date) As Date
+          Dim dayofWeek As String
+          
+10    On Error GoTo findSunday_Error
+
+20        dayofWeek = Format(pickDate, "ddd")
+30        startDay = pickDate
+          
+40        If dayofWeek <> "Sun" Then MsgBox "This date is not on a Sunday and will be change to the Sunday before " & startDay & "."
+          
+50        Select Case dayofWeek
+          Case "Mon"
+60            startDay = startDay - 1
+70        Case "Tue"
+80            startDay = startDay - 2
+90        Case "Wed"
+100           startDay = startDay - 3
+110       Case "Thu"
+120           startDay = startDay - 4
+130       Case "Fri"
+140           startDay = startDay - 5
+150       Case "Sat"
+160           startDay = startDay - 6
+              
+170       End Select
+          
+180       findSunday = startDay
+
+findSunday_Error:
+190       If Err.Number <> 0 Then
+200       Call logError(Err.Number, Err.Description, "findSunday", "FunctionModule", Erl)
+210       End If
+          
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : runUpdateQuery
+' Author    : mhayes
+' Date      : 4/6/2015
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Function runUpdateQuery(sql As String) As Boolean
+
+
+10        On Error GoTo runUpdateQuery_Error
+
+          Dim DB As dao.Database
+          Dim rs2 As Object
+          
+
+20        DoEvents
+30        Set DB = CurrentDb
+40        DB.Execute (sql)
+50        runUpdateQuery = True
+
+60        On Error GoTo 0
+70        Exit Function
+
+runUpdateQuery_Error:
+          'Release the objects.
+80        Set rs2 = Nothing
+90        Set DB = Nothing
+
+100       If Err.Number <> 0 Then
+110           runUpdateQuery = False
+120           Call logError(Err.Number, Err.Description, "runUpdateQuery", "FunctionModule", Erl)
+130       End If
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : runQuery
+' Author    : mhayes
+' Date      : 3/26/2015
+' Purpose   :run Query and return first value
+'---------------------------------------------------------------------------------------
+Function runQuery(sql As String)
+          Dim DB As dao.Database
+          Dim rs1 As Object
+10    On Error GoTo runQuery_Error
+
+20        Set DB = CurrentDb
+30        Set rs1 = DB.OpenRecordset(sql)
+                 
+40        runQuery = rs1.Fields(0)
+          'Close the recordet and the connection.
+50        rs1.Close
+          
+          'Release the objects.
+60        Set rs1 = Nothing
+70        Set DB = Nothing
+
+runQuery_Error:
+80        If Err.Number <> 0 Then
+90        Call logError(Err.Number, Err.Description, "runQuery", "Global functions", Erl)
+100       End If
+110       Set rs1 = Nothing
+120       Set DB = Nothing
+
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : runQueryGetRS
+' Author    : mhayes
+' Date      : 3/26/2015
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Function runQueryGetRS(sql As String) As dao.Recordset
+          Dim MyDB As dao.Database
+          Dim MyRS As dao.Recordset
+
+10    On Error GoTo runQueryGetRS_Error
+20        DoEvents
+30        Set MyDB = CurrentDb
+40        Set MyRS = MyDB.OpenRecordset(sql)
+           
+          'Set the return value of the Function = a DAO Recordset
+50        Set runQueryGetRS = MyRS
+          
+runQueryGetRS_Error:
+60        If Err.Number <> 0 Then
+70        Call logError(Err.Number, Err.Description, "runQueryGetRS", "Global functions", Erl)
+80        Set runQueryGetRS = Nothing
+90        End If
+            
+          
+100       Set MyDB = Nothing
+110       Set MyRS = Nothing
+          
+End Function
+
+Public Function TableExists(tableName As String) As Boolean
+
+10        On Error GoTo TableExists_Error
+
+20        TableExists = False
+
+          Dim DB As dao.Database
+          Dim td As dao.TableDef
+30        Set DB = CurrentDb
+40        On Error Resume Next
+50        Set td = DB.TableDefs(tableName)
+60        If Err.Number = 0 Then
+70            Err.Clear
+80            TableExists = True
+90            Exit Function
+100       Else
+110           Err.Clear
+120           Exit Function
+130       End If
+
+
+140       On Error GoTo 0
+150       Exit Function
+
+TableExists_Error:
+
+160       If Err.Number <> 0 Then
+170       Call logError(Err.Number, Err.Description, "TableExists", "FunctionModule", Erl)
+180       End If
+End Function
+
